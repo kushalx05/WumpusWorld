@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wumpus World Game</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 80px);
+            grid-template-rows: repeat(6, 80px);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        .tile {
+            width: 80px;
+            height: 80px;
+            background-color: #dedede;
+            border-radius: 10px;
+            border: 2px solid #a0a0a0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #444;
+            transition: background-color 0.3s ease;
+        }
+        .player {
+            background-color: #1a1686 !important;
+            color: white;
+        }
+        .warning {
+            background-color: #FFD700;
+        }
+        .danger {
+            background-color: #FF6347;
+        }
+        .success {
+            background-color: #32CD32;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #1a1686;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #020106;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        #status {
+            font-size: 20px;
+            color: #333;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>Wumpus World Game</h1>
+        <div id="grid" class="grid"></div>
+        <div id="controls">
+            <button onclick="move('up')">Up</button>
+            <br>
+            <button onclick="move('left')">Left</button>
+            <button onclick="move('right')">Right</button>
+            <br>
+            <button onclick="move('down')">Down</button>
+        </div>
+        <button onclick="resetGame()">Start New Game</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        let gridSize = 6;
+        let playerPosition = { x: 0, y: 0 };
+        let wumpusPosition, goldPosition, pitPositions = [];
+
+        function initializeGame() {
+            let grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    let tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.id = `tile-${i}-${j}`;
+                    grid.appendChild(tile);
+                }
+            }
+            placePlayer();
+            placeWumpusGoldPits();
+        }
+
+        function placePlayer() {
+            playerPosition = { x: 0, y: 0 };
+            updateTile(playerPosition, 'player');
+        }
+
+        function placeWumpusGoldPits() {
+            wumpusPosition = getRandomPosition();
+            goldPosition = getRandomPosition();
+            pitPositions = [];
+            for (let i = 0; i < 3; i++) {
+                pitPositions.push(getRandomPosition());
+            }
+        }
+
+        function getRandomPosition() {
+            return {
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize)
+            };
+        }
+
+        function move(direction) {
+            let newX = playerPosition.x;
+            let newY = playerPosition.y;
+
+            switch (direction) {
+                case 'up': newX = playerPosition.x > 0 ? playerPosition.x - 1 : playerPosition.x; break;
+                case 'down': newX = playerPosition.x < gridSize - 1 ? playerPosition.x + 1 : playerPosition.x; break;
+                case 'left': newY = playerPosition.y > 0 ? playerPosition.y - 1 : playerPosition.y; break;
+                case 'right': newY = playerPosition.y < gridSize - 1 ? playerPosition.y + 1 : playerPosition.y; break;
+            }
+
+            updatePlayerPosition(newX, newY);
+        }
+
+        function updatePlayerPosition(newX, newY) {
+            // Clear previous player tile
+            clearTile(playerPosition);
+
+            // Update player position
+            playerPosition.x = newX;
+            playerPosition.y = newY;
+
+            // Set new player tile color
+            updateTile(playerPosition, 'player');
+
+            checkForHazards();
+        }
+
+        function clearTile(position) {
+            let tile = document.getElementById(`tile-${position.x}-${position.y}`);
+            tile.classList.remove('player', 'warning', 'danger', 'success');
+            tile.style.backgroundColor = '#dedede';
+        }
+
+        function updateTile(position, status) {
+            let tile = document.getElementById(`tile-${position.x}-${position.y}`);
+            tile.classList.add(status);
+        }
+
+        function checkForHazards() {
+            let statusMessage = '';
+
+            if (playerPosition.x === wumpusPosition.x && playerPosition.y === wumpusPosition.y) {
+                statusMessage = "You've been eaten by the Wumpus!";
+                updateTile(playerPosition, 'danger');
+                disableControls();
+            } else if (playerPosition.x === goldPosition.x && playerPosition.y === goldPosition.y) {
+                statusMessage = "You found the gold! You win!";
+                updateTile(playerPosition, 'success');
+                disableControls();
+            } else if (pitPositions.some(pos => pos.x === playerPosition.x && pos.y === playerPosition.y)) {
+                statusMessage = "You fell into a pit! Game Over!";
+                updateTile(playerPosition, 'danger');
+                disableControls();
+            } else {
+                // Provide warnings (smell near Wumpus, breeze near pits)
+                let isNearWumpus = isNear(playerPosition, wumpusPosition);
+                let isNearPit = pitPositions.some(pos => isNear(playerPosition, pos));
+
+                if (isNearWumpus) {
+                    statusMessage = "You smell something foul...";
+                    updateTile(playerPosition, 'warning');
+                }
+                if (isNearPit) {
+                    statusMessage = "You feel a breeze...";
+                    updateTile(playerPosition, 'warning');
+                }
+            }
+
+            document.getElementById('status').textContent = statusMessage;
+        }
+
+        function isNear(pos1, pos2) {
+            return Math.abs(pos1.x - pos2.x) <= 1 && Math.abs(pos1.y - pos2.y) <= 1;
+        }
+
+        function disableControls() {
+            document.getElementById('controls').style.pointerEvents = 'none';
+        }
+
+        function resetGame() {
+            document.getElementById('controls').style.pointerEvents = 'auto';
+            document.getElementById('status').textContent = '';
+            initializeGame();
+        }
+
+        // Start the game when page loads
+        window.onload = resetGame;
+    </script>
+</body>
+</html>
